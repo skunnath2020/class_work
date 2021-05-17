@@ -3,8 +3,9 @@ ticker='AMZN'
 var url = 
 `https://www.alphavantage.co/query?function=INCOME_STATEMENT&symbol=${ticker}&apikey=${apiKey}`
 
+
 function buildPlot() {
-  d3.json(url).then(function(data) {
+    d3.json(url).then(function(data) {
 
     function unpack(rows, index) {
       return rows.map(function(row) {
@@ -15,43 +16,71 @@ function buildPlot() {
     // Grab values from the data json object to build the plots
     var name = data['symbol'];
     var quartReports=data["quarterlyReports"];
-    sDate =new Date()
-    eDate= new Date(sDate.getFullYear(),sDate.getMonth(), sDate.getDate()-365)
-    console.log(eDate);
-    console.log(name);
-    console.log(quartReports)
-
+    document.getElementById("headertag").innerHTML = name;
+    //Generate the header info for the chart
+    startDate =new Date()
+    endDate= new Date(startDate.getFullYear(),startDate.getMonth(), startDate.getDate()-365)
+    display_year = endDate.getFullYear() + "-"+ startDate.getFullYear();
+    header=[name, display_year]
     //Filter the Quarterly data for the past year
-    var yearData = quartReports.filter(x => {
+    var yearsData = quartReports.filter(x => {
         var date = new Date(x["fiscalDateEnding"])
-        return (date >= eDate && date <= sDate)
+        return (date >= endDate && date <= startDate)
     })
-    console.log(yearData)
-    var totalRevenue = unpack(yearData, "totalRevenue"); 
-    var dates = unpack(yearData, "fiscalDateEnding")
-    console.log(totalRevenue)
-    console.log(dates)
+    console.log(yearsData)
+    var totalRevenue = unpack(yearsData, "totalRevenue"); 
+    var operatingIncome = unpack(yearsData, "operatingIncome"); 
+    var netIncome = unpack(yearsData, "netIncome"); 
+    var COGS= unpack(yearsData, "costofGoodsAndServicesSold");
+    var dates = unpack(yearsData, "fiscalDateEnding");
+    //GPF is (Revenue - COGS)/Revenuee
+    var grossProfitMargin = totalRevenue.map(function(i, j) {return (i-COGS[j])/i});
+    const gpmAvg= grossProfitMargin.reduce((a,b) => a + b, 0)/grossProfitMargin.length
+    var grossProfit = totalRevenue.map(function(i, j) {return (i-COGS[j])});
+    const gpAvg= grossProfitMargin.reduce((a,b) => a + b, 0)/grossProfit.length
+    console.log(gpmAvg)
+    console.log(grossProfit)
+    console.log(gpAvg)
+
+    // Display charts
+    header=[name, display_year, "Revenue"]
+    drawChart(header, totalRevenue, dates, 'plot1') 
+    header=[name, display_year, "Operating Income"]
+    drawChart(header, totalRevenue, dates, 'plot1')
+    header=[name, display_year, "Operating Income"]
+    drawChart(header, operatingIncome, dates, 'plot2')
+    header=[name, display_year, "Net Income"]
+    drawChart(header, netIncome, dates, 'plot3')
+    // drawDonut()
+    })
+}
+function drawChart(headerArr, revenueArr, dateArr, id){
+  
+    //Trace the chart
     var trace1 = {
       type: "bar",
       mode: "lines",
       name: "high",
-      x: dates,
-      y: totalRevenue ,
+      x: dateArr,
+      y: revenueArr,
+      sparkline: {
+          enabled: true
+      },
       marker: {
         color: 'rgba(50,171,96,0.6)',
         line: {
           color: 'rgba(50,171,96,1.0)',
           width: 1
         }
-        }    
+      }    
     };
 
     var layout = {
       grid: {rows: 1, columns: 2, pattern: 'independent'},
       showlegend: false,
       autosize: true,
-      width: 400,
-      height: 280,
+      width: 350,
+      height: 240,
       xaxis: {
         type: "date",
         tickfont: {
@@ -72,10 +101,9 @@ function buildPlot() {
       
     };
     layout.title = { 
-        text: `${ticker}<br> Revenue by Quarter`, 
+        text: `${headerArr[2]}`, 
         font: {
           size: 14,
-        // color: 'purple'
         },
         x: 0.3,
         y: 2.2,
@@ -84,10 +112,10 @@ function buildPlot() {
       };
   
     var data = [trace1];
-  
+    const config = {
+        'displayModeBar': false // this is the line that hides the bar.
+    };
     //   Plotly.newPlot("plot", data, layout); 
-    Plotly.newPlot('plot', data, layout);
-  });
-}
-
+    Plotly.newPlot(id, data, layout, config );
+ }
 buildPlot();
