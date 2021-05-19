@@ -1,0 +1,2 @@
+// API key
+const API_KEY = "Z1SWFKTG08NRZOO7";
